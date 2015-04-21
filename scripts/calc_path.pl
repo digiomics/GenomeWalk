@@ -1,36 +1,98 @@
 #!/usr/bin/perl
 use strict;
 use warnings;
+use Inline 'C';
+use constant STEP =>.02;
+use constant HEIGHT => 450;
+use constant WIDTH => 400;
+
 use SVG;
-#use Inline 'C';
-use constant STEP =>2;
-(my ($xs,$ys));
-push(@{$xs},600);
-push(@{$ys},400);
- my $svg= SVG->new(width=>800,height=>800);
+(my ($xs,$ys,$id));
+(my ($max_x,$min_x,$max_y,$min_y)) = (0 , 0 , 0 ,0 );
+(my ($scale_x,$scale_y,$scale)) = (1,1,1);
+push(@{$xs},0);
+push(@{$ys},0);
+ my $svg= SVG->new(width=>WIDTH,height=>HEIGHT);
+ $svg->rect(x=>1,y=>1,width=>799,height=>799,style=>{'stroke' => 'black','stroke-width' => 1,fill=>'none'});
 while (<>) {
-    next if /^>/ || /^$/;
+    next if /^$/;
     chomp;
-    print $xs->[-1],"\t";
-    (my ($x_tem,$y_tem)) = calc_path_pl([split(//,$_)],$xs->[-1],$ys->[-1]);
-    push(@{$xs},@{$x_tem});
-    push(@{$ys},@{$y_tem});
-    print $xs->[-1],"\n";
+    if (/^>.+\|\ (\w+\ \w+[^\|]+).*/){
+	    $id = $1;
+    }
+	
+ 
+#    (my ($x_tem,$y_tem)) = calc_path_pl([split(//,$_)],$xs->[-1],$ys->[-1]);
+    (my ($x_tem,$y_tem)) = calc_path($_,$xs->[-1],$ys->[-1]);
+
+    push(@{$xs},$x_tem);
+    push(@{$ys},$y_tem);
+    $max_x = $x_tem if $x_tem > $max_x;
+    $min_x = $x_tem if $x_tem < $min_x;
+    $max_y = $y_tem if $y_tem > $max_y;
+    $min_y = $y_tem if $y_tem < $min_y;
+ 
 }
 
+#Calculate scaling factor
+if ($max_x - $min_x > WIDTH) {
+	$scale_x = WIDTH  / ($max_x - $min_x) ;
+}
+if ($max_y - $min_y > (HEIGHT-50)) {
+	$scale_y = ((HEIGHT-50) / ($max_y - $min_y)) ;
+}
+warn $scale_x,"\t",$scale_y,"\n";
+$scale = ($scale_x < $scale_y) ? $scale_x : $scale_y;
+
+# Transform path so that the plot is centered around the midpoint of the canvas
+my $x_off = WIDTH /2  -($max_x - (($max_x - $min_x) / 2));
+my $y_off =HEIGHT /2  -($max_y - (($max_y - $min_y) / 2)) +50*$scale;
+
+warn join("\t",($min_x,$max_x,$min_y,$max_y,$x_off,$y_off));
+my $g = $svg->group("transform" => "translate( $x_off,$y_off) scale ($scale) ");
+$g->circle(
+    cx=>$xs->[0],
+    cy=>$ys->[0],
+    r=>3,
+    style => {
+        'fill'           => 'rgb(0, 255, 0)',
+        'stroke'         => 'blue',
+        'stroke-width'   =>  1,
+        'stroke-opacity' =>  1,
+        'fill-opacity'   =>  1,
+    },
+    );
  my $path = $svg->get_path(
         x => $xs,
         y => $ys,
         -type   => 'polyline',
         -closed => 'false'  #specify that the polyline is closed
     );
-$svg->polyline(%$path,style=>{
+    
+$g->polyline(%$path,style=>{
         'fill'          => 'none',
-        'stroke'         => 'grey',
-        'stroke-width'   =>  3,
+        'stroke'         => 'black',
+        'stroke-width'   =>  1
+        });
         
-        
-});
+
+$g->circle(
+    cx=>$xs->[-1],
+    cy=>$ys->[-1],
+    r=>3,
+    style => {
+        'fill'           => 'rgb(255, 0, 0)',
+        'stroke'         => 'blue',
+        'stroke-width'   =>  1,
+        'stroke-opacity' =>  1,
+        'fill-opacity'   =>  1,
+    },
+    );
+
+$svg->text('x' => 20,
+		'y' => 20,
+		'stroke' => 'black',
+		'fill' => 'red')->cdata($id);
 print $svg->xmlify;
 
 
@@ -38,56 +100,76 @@ sub calc_path_pl {
     my $string = shift;
     my $x = shift;
     my $y = shift;
-    my $x_ref;
-    my $y_ref;
+    #my $x_ref = 0;
+    #my $y_ref = 0;
     
-    foreach(@{$string}){
+    foreach(@{$string}) {
         if ($_ eq 'C'){
-            push(@{$x_ref},$x);
-            $y-= STEP;
-            push(@{$y_ref},$y);
+            $y-=STEP;
         }
         elsif($_ eq 'G'){
-            push(@{$x_ref},$x);
             $y+=STEP;
-            push(@{$y_ref},$y);
         }
             
         elsif($_ eq 'A'){
             $x-=STEP;
-            push (@{$x_ref},$x);
-            push (@{$y_ref},$y);
         }
         elsif($_ eq 'T'){
-            $x+=STEP;
-            push(@{$x_ref},$x);
-            push(@{$y_ref},$y);
+            $x+=STEP
         }
     }
-    return ($x_ref,$y_ref);
+    return ($x,$y);
+    #foreach(@{$string}){
+    #    if ($_ eq 'C'){
+    #        push(@{$x_ref},$x);
+    #        $y-= STEP;
+    #        push(@{$y_ref},$y);
+    #    }
+    #    elsif($_ eq 'G'){
+    #        push(@{$x_ref},$x);
+    #        $y+=STEP;
+    #        push(@{$y_ref},$y);
+    #    }
+            
+    #    elsif($_ eq 'A'){
+    #        $x-=STEP;
+    #        push (@{$x_ref},$x);
+    #        push (@{$y_ref},$y);
+    #    }
+    #    elsif($_ eq 'T'){
+    #        $x+=STEP;
+    #        push(@{$x_ref},$x);
+    #        push(@{$y_ref},$y);
+    #    }
+    #}
+#    return ($x_ref,$y_ref);
 }
 
 
-#__END__
-#__C__
+__END__
+__C__
 
-#/* convert a string of bases into a unique numeric index */
+/* convert a string of bases into a unique numeric index */
 
 
-#int calc_path(char* str,int x int y) {
-#      int i = 0;
-#      char c;
-#    AV* ret = newAV();
-#      while(c =r str[i++]) {
-#        if (c == 'C') 
-#          index += base * 1;
-#        else if (c == 'T')
-#          index += base * 2;
-#        else if (c == 'G')
-#          index += base * 3;
-#        base *= 4;
-#      }
-#      return index;
-#}
+void calc_path(char* str,double x, double y) {
+      int i = 0;
+      char c;
     
-#<<<
+      while(c = str[i++]) {
+        
+        if (c == 'C') 
+          y -= .02;
+        else if (c == 'G')
+          y += .02;
+        else if (c == 'A')
+          x -= .02;
+        else if (c == 'T')
+          x += .02;
+      }
+      Inline_Stack_Vars;
+      Inline_Stack_Reset;
+      Inline_Stack_Push(sv_2mortal(newSVnv(x)));
+      Inline_Stack_Push(sv_2mortal(newSVnv(y)));
+      Inline_Stack_Done;
+}
