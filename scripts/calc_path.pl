@@ -5,9 +5,9 @@ use Inline 'C';
 use constant STEP =>.02;
 use constant HEIGHT => 450;
 use constant WIDTH => 400;
-
+use constant WINDOW => 70;
 use SVG;
-(my ($xs,$ys,$id));
+(my ($xs,$ys,$id,$string_buffer));
 (my ($max_x,$min_x,$max_y,$min_y)) = (0 , 0 , 0 ,0 );
 (my ($scale_x,$scale_y,$scale)) = (1,1,1);
 push(@{$xs},0);
@@ -19,21 +19,32 @@ while (<>) {
     chomp;
     if (/^>.+\|\ (\w+\ \w+[^\|]+).*/){
 	    $id = $1;
+	next;
     }
-	
- 
+#Append line from file to string buffer
+    $string_buffer .= $_;
+# check if string buffer contains enough sequence
+    if (length($string_buffer) >= WINDOW ) {
+	    my $window = substr($string_buffer , 0 ,WINDOW,"");
 #    (my ($x_tem,$y_tem)) = calc_path_pl([split(//,$_)],$xs->[-1],$ys->[-1]);
-    (my ($x_tem,$y_tem)) = calc_path($_,$xs->[-1],$ys->[-1]);
-
-    push(@{$xs},$x_tem);
-    push(@{$ys},$y_tem);
-    $max_x = $x_tem if $x_tem > $max_x;
-    $min_x = $x_tem if $x_tem < $min_x;
-    $max_y = $y_tem if $y_tem > $max_y;
-    $min_y = $y_tem if $y_tem < $min_y;
+	    (my ($x_tem,$y_tem)) = calc_path($window,$xs->[-1],$ys->[-1]);
+	    push(@{$xs},$x_tem);
+	    push(@{$ys},$y_tem);
+	    $max_x = $x_tem if $x_tem > $max_x;
+	    $min_x = $x_tem if $x_tem < $min_x;
+	    $max_y = $y_tem if $y_tem > $max_y;
+	    $min_y = $y_tem if $y_tem < $min_y;
+    }
  
 }
-
+# Process rest of sequence in string buffer
+(my ($x_tem,$y_tem)) = calc_path($string_buffer,$xs->[-1],$ys->[-1]);
+push(@{$xs},$x_tem);
+push(@{$ys},$y_tem);
+$max_x = $x_tem if $x_tem > $max_x;
+$min_x = $x_tem if $x_tem < $min_x;
+$max_y = $y_tem if $y_tem > $max_y;
+$min_y = $y_tem if $y_tem < $min_y;
 #Calculate scaling factor
 if ($max_x - $min_x > WIDTH) {
 	$scale_x = WIDTH  / ($max_x - $min_x) ;
