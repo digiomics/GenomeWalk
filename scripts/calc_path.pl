@@ -24,7 +24,7 @@ while (<>) {
 #Append line from file to string buffer
     $string_buffer .= $_;
 # check if string buffer contains enough sequence
-    if (length($string_buffer) >= WINDOW ) {
+    while (length($string_buffer) >= WINDOW ) {
 	    my $window = substr($string_buffer , 0 ,WINDOW,"");
 #    (my ($x_tem,$y_tem)) = calc_path_pl([split(//,$_)],$xs->[-1],$ys->[-1]);
 	    (my ($x_tem,$y_tem)) = calc_path($window,$xs->[-1],$ys->[-1]);
@@ -56,8 +56,8 @@ warn $scale_x,"\t",$scale_y,"\n";
 $scale = ($scale_x < $scale_y) ? $scale_x : $scale_y;
 
 # Transform path so that the plot is centered around the midpoint of the canvas
-my $x_off = WIDTH /2  -($max_x - (($max_x - $min_x) / 2));
-my $y_off =HEIGHT /2  -($max_y - (($max_y - $min_y) / 2)) +50*$scale;
+my $x_off = WIDTH  / 2  -($max_x - (($max_x - $min_x) / 2));
+my $y_off = HEIGHT / 2  -($max_y - (($max_y - $min_y) / 2)) +50*$scale;
 
 warn join("\t",($min_x,$max_x,$min_y,$max_y,$x_off,$y_off));
 my $g = $svg->group("transform" => "translate( $x_off,$y_off) scale ($scale) ");
