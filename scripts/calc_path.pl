@@ -1,4 +1,5 @@
 #!/usr/bin/perl
+#
 use strict;
 use warnings;
 use Inline 'C';
@@ -7,16 +8,32 @@ use constant HEIGHT => 850;
 use constant WIDTH => 800;
 use constant WINDOW => 1000;
 use SVG;
+use Getopt::Std;
+my %opts;
+getopt('i:o:', \%opts);
+my $usage = "\n\t$0 -i [path/to/fasta/input/file] -o [path/to/svg/output/file]";
+
+#checking input and output
+die $usage unless ($opts{i} && $opts{o});
+die "Error: $opts{i} does not exist!" unless (-e $opts{i});
+
+open (my $fh, "<", $opts{i}) || die "Error. Could not open $opts{i}: $!\n";
+open (my $fho,">",$opts{o}) || die "Error. Could not open $opts{o}: $!\n";
+
+# initiating path
 (my ($xs,$ys,$id,$string_buffer));
 (my ($max_x,$min_x,$max_y,$min_y)) = (0 , 0 , 0 ,0 );
 (my ($scale_x,$scale_y,$scale)) = (1,1,1);
 push(@{$xs},0);
 push(@{$ys},0);
- my $svg= SVG->new(width=>WIDTH,height=>HEIGHT);
+my $svg= SVG->new(width=>WIDTH,height=>HEIGHT);
  $svg->rect(x=>1,y=>1,width=>WIDTH-1,height=>HEIGHT-1,style=>{'stroke' => 'black','stroke-width' => 1,fill=>'none'});
-while (<>) {
+
+#Read fasta file
+while (<$fh>) {
     next if /^$/;
     chomp;
+    # check for header
     if (/^>.+\|\ (\w+\ \w+[^\|]+).*/){
 	    $id = $1;
 	next;
@@ -26,10 +43,12 @@ while (<>) {
 # check if string buffer contains enough sequence
     while (length($string_buffer) >= WINDOW ) {
 	    my $window = substr($string_buffer , 0 ,WINDOW,"");
-#    (my ($x_tem,$y_tem)) = calc_path_pl([split(//,$_)],$xs->[-1],$ys->[-1]);
+#    calculate path for buffer content
 	    (my ($x_tem,$y_tem)) = calc_path($window,$xs->[-1],$ys->[-1]);
+	    
 	    push(@{$xs},$x_tem);
 	    push(@{$ys},$y_tem);
+	    #store maximum values
 	    $max_x = $x_tem if $x_tem > $max_x;
 	    $min_x = $x_tem if $x_tem < $min_x;
 	    $max_y = $y_tem if $y_tem > $max_y;
@@ -37,6 +56,8 @@ while (<>) {
     }
  
 }
+close $fh || warn "Error. Could not close $opts{i}: $!";
+
 # Process rest of sequence in string buffer
 (my ($x_tem,$y_tem)) = calc_path($string_buffer,$xs->[-1],$ys->[-1]);
 push(@{$xs},$x_tem);
@@ -57,7 +78,7 @@ $scale = ($scale_x < $scale_y) ? $scale_x : $scale_y;
 
 # Transform path so that the plot is centered around the midpoint of the canvas
 my $x_off = WIDTH  / 2  -($max_x - (($max_x - $min_x) / 2));
-my $y_off = HEIGHT / 2  -($max_y - (($max_y - $min_y) / 2)) +50*$scale;
+my $y_off = (HEIGHT+40) / 2  -($max_y - (($max_y - $min_y) / 2)) *$scale;
 
 warn join("\t",($min_x,$max_x,$min_y,$max_y,$x_off,$y_off));
 my $g = $svg->group("transform" => "translate( $x_off,$y_off) scale ($scale) ");
@@ -104,59 +125,9 @@ $svg->text('x' => 20,
 		'y' => 20,
 		'stroke' => 'black',
 		'fill' => 'red')->cdata($id);
-print $svg->xmlify;
 
-
-sub calc_path_pl {
-    my $string = shift;
-    my $x = shift;
-    my $y = shift;
-    #my $x_ref = 0;
-    #my $y_ref = 0;
-    
-    foreach(@{$string}) {
-        if ($_ eq 'C'){
-            $y-=STEP;
-        }
-        elsif($_ eq 'G'){
-            $y+=STEP;
-        }
-            
-        elsif($_ eq 'A'){
-            $x-=STEP;
-        }
-        elsif($_ eq 'T'){
-            $x+=STEP
-        }
-    }
-    return ($x,$y);
-    #foreach(@{$string}){
-    #    if ($_ eq 'C'){
-    #        push(@{$x_ref},$x);
-    #        $y-= STEP;
-    #        push(@{$y_ref},$y);
-    #    }
-    #    elsif($_ eq 'G'){
-    #        push(@{$x_ref},$x);
-    #        $y+=STEP;
-    #        push(@{$y_ref},$y);
-    #    }
-            
-    #    elsif($_ eq 'A'){
-    #        $x-=STEP;
-    #        push (@{$x_ref},$x);
-    #        push (@{$y_ref},$y);
-    #    }
-    #    elsif($_ eq 'T'){
-    #        $x+=STEP;
-    #        push(@{$x_ref},$x);
-    #        push(@{$y_ref},$y);
-    #    }
-    #}
-#    return ($x_ref,$y_ref);
-}
-
-
+print $fho $svg->xmlify;
+close $fho || die "Error. Could not close $opts{o}: $!";
 __END__
 __C__
 
