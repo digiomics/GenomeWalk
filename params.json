@@ -1,0 +1,7 @@
+{
+  "name": "Genomewalk",
+  "tagline": "Webapp to generate and display genome walks",
+  "body": "# GenomeWalk\r\n\r\nThe purpose of this app is to generate and display DNA walks of bacterial genomes. \r\nDNA walks are simple graphical representations of DNA molecules.\r\nEach of the four nucletodies (A,C,G and T) found in DNA is assigned to a different vector in 2-dimensional space. The sequence of nucleotides is translated into a path of vectors forming a unique graphical representation of the molecule.\r\n",
+  "google": "",
+  "note": "Don't delete this file! It's used internally to help with page regeneration."
+}
