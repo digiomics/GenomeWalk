@@ -1,5 +1,11 @@
 #!/usr/bin/perl
-#
+
+#############################################################
+#                                                           #
+# genome_walk.pl Copyright (C) 2016, Sascha Strauss         #
+#                                                           #
+#############################################################
+
 use strict;
 use warnings;
 use Inline 'C';
